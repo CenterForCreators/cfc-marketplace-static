@@ -1,0 +1,7 @@
+services:
+  - type: static
+    name: cfc-marketplace-static
+    env: static
+    buildCommand: ""
+    publishPath: "/"
+    rootDir: "/"
