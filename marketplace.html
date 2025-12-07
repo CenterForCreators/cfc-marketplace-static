@@ -130,6 +130,110 @@
 <button class="btn secondary" id="navPurchases">My Purchases</button>
 <button class="btn secondary" id="navRedeem">Redeem</button>
 </div>
+    <!-- ============================
+     LIVE MINTED NFT MARKET FEED
+     (Option B – inject before static NFTs)
+     ============================ -->
+<div id="cfc-market-live" style="margin-top:40px;">
+    <h2 style="text-align:center;color:#fff;margin-bottom:20px;">
+        Live NFTs from CFC Creators
+    </h2>
+
+    <div id="cfc-market-grid"
+         style="display:flex;flex-wrap:wrap;gap:25px;justify-content:center;">
+    </div>
+</div>
+
+<script>
+const MARKET_API = "https://cfc-nft-shared-mint-backend.onrender.com";
+const IPFS = "https://gateway.pinata.cloud/ipfs/";
+
+// Fetch and load NFTs
+async function loadMarketNFTs() {
+    try {
+        const r = await fetch(MARKET_API + "/api/market/all");
+        const items = await r.json();
+
+        const grid = document.getElementById("cfc-market-grid");
+        grid.innerHTML = "";
+
+        items.forEach(nft => {
+            const card = document.createElement("div");
+            card.style.width = "280px";
+            card.style.background = "#111";
+            card.style.border = "1px solid #333";
+            card.style.borderRadius = "10px";
+            card.style.padding = "15px";
+            card.style.color = "#fff";
+            card.style.textAlign = "center";
+
+            card.innerHTML = `
+                <img src="${IPFS + nft.image_cid}"
+                     style="width:100%;border-radius:10px;margin-bottom:12px;">
+
+                <h3 style="margin:8px 0;">${nft.name}</h3>
+
+                <p style="font-size:14px;color:#bbb;">
+                    ${nft.description || ""}
+                </p>
+
+                <div style="margin-top:10px;font-size:15px;">
+                    <strong>${nft.price_xrp} XRP</strong>
+                    <br>
+                    <strong>${nft.price_rlusd} RLUSD</strong>
+                </div>
+
+                <button onclick="payXRP(${nft.id})"
+                        style="margin-top:12px;width:100%;padding:10px;
+                               background:#4CAF50;color:#fff;border:none;
+                               border-radius:6px;cursor:pointer;">
+                    Buy with XRP
+                </button>
+
+                <button onclick="payRLUSD(${nft.id})"
+                        style="margin-top:8px;width:100%;padding:10px;
+                               background:#2196F3;color:#fff;border:none;
+                               border-radius:6px;cursor:pointer;">
+                    Buy with RLUSD
+                </button>
+            `;
+
+            grid.appendChild(card);
+        });
+    } catch (err) {
+        console.error("Marketplace load error:", err);
+    }
+}
+
+async function payXRP(id) {
+    const r = await fetch(MARKET_API + "/api/market/pay-xrp", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ id })
+    });
+    const d = await r.json();
+    window.open(d.link, "_blank");
+}
+
+async function payRLUSD(id) {
+    const r = await fetch(MARKET_API + "/api/market/pay-rlusd", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ id })
+    });
+    const d = await r.json();
+    window.open(d.link, "_blank");
+}
+
+loadMarketNFTs();
+</script>
+
+
+
+<!-- DO NOT TOUCH BELOW THIS LINE -->
+<!-- THIS IS WHERE YOUR STATIC NFT CARDS BEGIN -->
+<div class="nfts">
+
 <section id="view-market">
 <div class="grid">
 <!-- Service NFT -->
