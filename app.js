@@ -6,6 +6,20 @@ const express = require("express");
 const xrpl = require("xrpl");
 const cors = require("cors");
 const path = require("path");
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+(async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS faucet_claims (
+      wallet TEXT PRIMARY KEY,
+      last_claim TIMESTAMP NOT NULL
+    );
+  `);
+})();
 
 const app = express();
 
@@ -190,7 +204,7 @@ app.post('/api/join', async (req, res) => {
 /* -------------------------------------------------
    CFC FAUCET
 ---------------------------------------------------*/
-const grants = new Map();
+
 
 app.post("/api/faucet", async (req, res) => {
   try {
@@ -201,10 +215,24 @@ app.post("/api/faucet", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Invalid account" });
     }
 
-    const last = grants.get(account) || 0;
-    const now = Date.now();
-    if (now - last < 86400000)
-      return res.status(429).json({ ok: false, error: "Faucet already claimed (24h limit)" });
+   // 24 hour database check
+const existing = await pool.query(
+  "SELECT last_claim FROM faucet_claims WHERE wallet=$1",
+  [account]
+);
+
+if (existing.rows.length) {
+  const lastClaim = new Date(existing.rows[0].last_claim);
+  const now = new Date();
+  const diff = now - lastClaim;
+
+  if (diff < 86400000) {
+    return res.status(429).json({
+      ok: false,
+      error: "Faucet already claimed (24h limit)"
+    });
+  }
+}
 
     const issuer = process.env.ISSUER_CLASSIC || process.env.CFC_ISSUER;
     const seed = process.env.ISSUER_SEED || process.env.FAUCET_SEED;
@@ -247,11 +275,21 @@ app.post("/api/faucet", async (req, res) => {
     const result = await client.submitAndWait(signed.tx_blob);
 
     await client.disconnect();
+if (result.result?.meta?.TransactionResult === "tesSUCCESS") {
 
-    if (result.result?.meta?.TransactionResult === "tesSUCCESS") {
-      grants.set(account, now);
-      return res.json({ ok: true, hash: result.result?.tx_json?.hash });
-    } else {
+  await pool.query(
+    `
+    INSERT INTO faucet_claims (wallet, last_claim)
+    VALUES ($1, NOW())
+    ON CONFLICT (wallet)
+    DO UPDATE SET last_claim = NOW()
+    `,
+    [account]
+  );
+
+  return res.json({ ok: true, hash: result.result?.tx_json?.hash });
+}
+     else {
       return res.status(500).json({
         ok: false,
         error: result.result?.meta?.TransactionResult || "Submit failed"
