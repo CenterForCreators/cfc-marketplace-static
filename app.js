@@ -106,12 +106,11 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get("/api/ipfs/:cid", async (req, res) => {
   try {
     const r = await fetch(`https://gateway.pinata.cloud/ipfs/${req.params.cid}`);
-    const buffer = await r.arrayBuffer();
 
     res.setHeader("Content-Type", r.headers.get("content-type") || "image/png");
     res.setHeader("Cache-Control", "public, max-age=31536000");
 
-    res.send(Buffer.from(buffer));
+    r.body.pipe(res);
   } catch (e) {
     console.error("IPFS proxy error:", e);
     res.status(500).send("Image load failed");
