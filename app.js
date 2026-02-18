@@ -238,11 +238,12 @@ const existing = await pool.query(
 );
 
 if (existing.rows.length) {
-  const lastClaim = new Date(existing.rows[0].last_claim);
-  const now = new Date();
-  const diff = now - lastClaim;
+  const check = await pool.query(
+    "SELECT NOW() - last_claim < INTERVAL '24 hours' AS blocked FROM faucet_claims WHERE wallet=$1",
+    [account]
+  );
 
-  if (diff < 86400000) {
+  if (check.rows[0].blocked) {
     return res.status(429).json({
       ok: false,
       error: "Faucet already claimed (24h limit)"
